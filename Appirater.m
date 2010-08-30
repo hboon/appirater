@@ -79,6 +79,7 @@ NSString *templateReviewURL = @"itms-apps://itunes.apple.com/WebObjects/MZStore.
 	NSURL *testURL = [NSURL URLWithString:@"http://www.apple.com/"];
 	NSURLRequest *testRequest = [NSURLRequest requestWithURL:testURL  cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:20.0];
 	NSURLConnection *testConnection = [[NSURLConnection alloc] initWithRequest:testRequest delegate:self];
+	[testConnection autorelease];
 	
     return ((isReachable && !needsConnection) || nonWiFi) ? (testConnection ? YES : NO) : NO;
 }
@@ -90,7 +91,7 @@ NSString *templateReviewURL = @"itms-apps://itunes.apple.com/WebObjects/MZStore.
 
 + (void)appLaunched {
 	Appirater *appirater = [[Appirater alloc] init];
-	[NSThread detachNewThreadSelector:@selector(_appLaunched) toTarget:appirater withObject:nil];
+	[NSThread detachNewThreadSelector:@selector(_appLaunched) toTarget:[appirater autorelease] withObject:nil];
 }
 
 - (void)_appLaunched {
@@ -99,11 +100,10 @@ NSString *templateReviewURL = @"itms-apps://itunes.apple.com/WebObjects/MZStore.
 	if (APPIRATER_DEBUG)
 	{
 		[self performSelectorOnMainThread:@selector(showPrompt) withObject:nil waitUntilDone:NO];
+		[pool release];
 		
 		return;
 	}
-	
-	BOOL willShowPrompt = NO;
 	
 	// get the app's version
 	NSString *version = [[[NSBundle mainBundle] infoDictionary] objectForKey:(NSString*)kCFBundleVersionKey];
@@ -153,7 +153,6 @@ NSString *templateReviewURL = @"itms-apps://itunes.apple.com/WebObjects/MZStore.
 		{
 			if ([self connectedToNetwork])	// check if they can reach the app store
 			{
-				willShowPrompt = YES;
 				[self performSelectorOnMainThread:@selector(showPrompt) withObject:nil waitUntilDone:NO];
 			}
 		}
@@ -170,22 +169,23 @@ NSString *templateReviewURL = @"itms-apps://itunes.apple.com/WebObjects/MZStore.
 
 	
 	[userDefaults synchronize];
-	if (!willShowPrompt)
-		[self autorelease];
 	
 	[pool release];
 }
 
 - (void)showPrompt {
+	[self retain];	// We release in delegate callback for UIAlertView
 	UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:APPIRATER_MESSAGE_TITLE
 														message:APPIRATER_MESSAGE
 													   delegate:self
 											  cancelButtonTitle:APPIRATER_CANCEL_BUTTON
 											  otherButtonTitles:APPIRATER_RATE_BUTTON, APPIRATER_RATE_LATER, nil];
 	[alertView show];
+	[alertView release];
 }
 
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+	[self autorelease];
 	NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
 	
 	switch (buttonIndex) {
@@ -212,9 +212,6 @@ NSString *templateReviewURL = @"itms-apps://itunes.apple.com/WebObjects/MZStore.
 	}
 	
 	[userDefaults synchronize];
-	
-	[alertView release];
-	[self release];
 }
 
 @end
